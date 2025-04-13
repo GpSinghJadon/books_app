@@ -68,11 +68,26 @@ class BasePostgresRepository(Generic[T, M]):
         if not entity.id:
             raise ValueError("Cannot update entity without ID")
         
-        db_model = self._to_db_model(entity)
-        self.session.add(db_model)
+        # First, get the existing entity from the database
+        query = select(self.model).where(self.model.id == entity.id)
+        result = await self.session.execute(query)
+        db_model = result.scalars().first()
+        
+        if not db_model:
+            raise ValueError(f"Entity with ID {entity.id} not found")
+        
+        # Update the model with new values
+        entity_data = entity.dict(exclude_unset=True)
+        for key, value in entity_data.items():
+            if hasattr(db_model, key):
+                setattr(db_model, key, value)
+        
+        # Commit the changes
         await self.session.commit()
         await self.session.refresh(db_model)
+        
         return self._to_domain(db_model)
+
     
     async def delete(self, id: int) -> bool:
         """Delete an entity by its ID."""
