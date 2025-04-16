@@ -1,18 +1,43 @@
 # infrastructure/llm/llm_repository.py
+import os
 from typing import List
+import ollama
 from domain.repositories import LlmRepositoryProtocol
-from llm import LocalLlamaClientPlaceholder, generate_summary_async
 
 class LlmRepository(LlmRepositoryProtocol):
     """Implementation of the LLM repository using the local Llama model."""
     
     def __init__(self):
         """Initialize the LLM client."""
-        self.client = LocalLlamaClientPlaceholder()
+        # Configure Ollama client
+        ollama_host = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
+        # Set the Ollama host for the client
+        ollama.host = ollama_host
+        
+        # Store configuration parameters
+        self.model = os.getenv("OLLAMA_MODEL", "llama2")
+        self.max_tokens = int(os.getenv("OLLAMA_MAX_TOKENS", "2048"))
+        self.temperature = float(os.getenv("OLLAMA_TEMPERATURE", "0.7"))
+        self.top_p = float(os.getenv("OLLAMA_TOP_P", "0.9"))
     
     async def generate_summary(self, text: str) -> str:
         """Generate a summary for the given text using the LLM."""
-        return await generate_summary_async(self.client, text)
+        prompt = f"Please summarize the following text concisely:\n\n{text}"
+        
+        try:
+            response = await ollama.generate(
+                model=self.model,
+                prompt=prompt,
+                options={
+                    "num_predict": self.max_tokens,
+                    "temperature": self.temperature,
+                    "top_p": self.top_p
+                }
+            )
+            return response['response'].strip()
+        except Exception as e:
+            print(f"Error during summary generation: {e}")
+            raise RuntimeError(f"AI summary generation failed.") from e
     
     async def generate_book_summary(self, book_title: str, book_content: str) -> str:
         """Generate a summary specifically for a book."""
@@ -26,8 +51,17 @@ class LlmRepository(LlmRepositoryProtocol):
         Summary:"""
         
         try:
-            summary = await self.client.generate(prompt=prompt, max_tokens=200, temperature=0.5)
-            return summary
+            # Generate the summary
+            response = await ollama.generate(
+                model=self.model,
+                prompt=prompt,
+                options={
+                    "num_predict": self.max_tokens,
+                    "temperature": self.temperature,
+                    "top_p": self.top_p
+                }
+            )
+            return response['response'].strip()
         except Exception as e:
             print(f"Error during book summary generation: {e}")
             raise RuntimeError(f"AI book summary generation failed.") from e
@@ -43,8 +77,16 @@ class LlmRepository(LlmRepositoryProtocol):
         Summary:"""
         
         try:
-            summary = await self.client.generate(prompt=prompt, max_tokens=150, temperature=0.5)
-            return summary
+            response = await ollama.generate(
+                model=self.model,
+                prompt=prompt,
+                options={
+                    "num_predict": self.max_tokens,
+                    "temperature": self.temperature,
+                    "top_p": self.top_p
+                }
+            )
+            return response['response'].strip()
         except Exception as e:
             print(f"Error during review summary generation: {e}")
             raise RuntimeError(f"AI review summary generation failed.") from e

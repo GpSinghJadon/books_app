@@ -30,3 +30,5 @@ mypy>=1.2.0  # Type checking
 markdown>=3.4.3
 alembic
 psycopg2-binary
+
+ollama
